@@ -1,62 +1,36 @@
-export async function onRequestPost(context) {
+export async function onRequestPost({ request, env }) {
   try {
-    // 1. Intercept the form data from the incoming POST request
-    const formData = await context.request.formData();
+    // 1. Grab the form data from the frontend
+    const formData = await request.formData();
     const name = formData.get('name');
     const email = formData.get('email');
-    const company = formData.get('company');
-    const inquiryType = formData.get('inquiryType');
     const message = formData.get('message');
 
-    // 2. Perform basic server-side validation
-    if (!name || !email || !message) {
-      return new Response('Missing required fields.', { status: 400 });
-    }
-
-    // 3. Construct the email payload for your Email Provider (e.g., Resend)
-    const payload = {
-      from: "PYM Energy Website <the-void@pymenergy.com>",
-      to: ["tymz@pymenergy.com"],
-      subject: `New Consulting Lead: ${inquiryType} from ${name}`,
-      text: `
-        Name: ${name}
-        Email: ${email}
-        Company: ${company}
-        Service Requested: ${inquiryType}
-        
-        Message:
-        ${message}
-      `
-    };
-
-    // 4. Fire the data to your Email Provider's API securely
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
+    // 2. Fire the payload to your transactional email provider (e.g., Resend)
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        // Accessing the secret API key stored in your Cloudflare dashboard
-        "Authorization": `Bearer ${context.env.EMAIL_API_KEY}`
+        'Content-Type': 'application/json',
+        // This pulls the variable you injected into the Cloudflare dashboard!
+        'Authorization': `Bearer ${env.EMAIL_API_KEY}`
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        from: 'onboarding@resend.dev', // Update this to your verified sending domain later
+        to: 'tymz@pymenergy.com',      // Your Google Workspace inbox
+        subject: `New PYM Energy Inquiry from ${name}`,
+        text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`
+      })
     });
 
-    if (response.ok) {
-      // 5. Tell the frontend the submission was successful
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    if (emailResponse.ok) {
+      // 3. If successful, seamlessly redirect the user back to your homepage
+      return Response.redirect(new URL('/?success=true', request.url), 303);
     } else {
-      return new Response(JSON.stringify({ error: 'Failed to route email.' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const errorData = await emailResponse.text();
+      return new Response(`Failed to route message: ${errorData}`, { status: 500 });
     }
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Internal Server Error.' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(`Server error: ${error.message}`, { status: 500 });
   }
 }
