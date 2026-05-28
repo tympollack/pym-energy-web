@@ -19,7 +19,7 @@ export async function onRequestPost({ request, env }) {
         'Authorization': `Bearer ${env.EMAIL_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'thevoid@pymenergy.com',
+        from: 'pym-website-contacts@pymenergy.com',
         to: 'tymz@pymenergy.com',
         subject: `🚨 New PYM Lead: ${companyName}`,
         text: `
