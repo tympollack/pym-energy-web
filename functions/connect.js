@@ -1,29 +1,42 @@
 export async function onRequestPost({ request, env }) {
   try {
-    // 1. Grab the form data from the frontend
     const formData = await request.formData();
-    const name = formData.get('name');
+    
+    // Extracting the exact names used in your HTML form attributes
+    const fullName = formData.get('fullName');
+    const companyName = formData.get('companyName');
     const email = formData.get('email');
-    const message = formData.get('message');
+    const phone = formData.get('phone') || 'Not Provided';
+    const website = formData.get('website') || 'Not Provided';
+    const serviceInterest = formData.get('serviceInterest');
+    const projectDetails = formData.get('projectDetails');
 
-    // 2. Fire the payload to your transactional email provider (e.g., Resend)
+    // Fire payload to Resend / SendGrid
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // This pulls the variable you injected into the Cloudflare dashboard!
         'Authorization': `Bearer ${env.EMAIL_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'onboarding@resend.dev', // Update this to your verified sending domain later
-        to: 'tymz@pymenergy.com',      // Your Google Workspace inbox
-        subject: `New PYM Energy Inquiry from ${name}`,
-        text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`
+        from: 'onboarding@resend.dev',
+        to: 'tymz@pymenergy.com',
+        subject: `🚨 New PYM Lead: ${companyName}`,
+        text: `
+Name: ${fullName}
+Company: ${companyName}
+Email: ${email}
+Phone: ${phone}
+Website: ${website}
+Interest: ${serviceInterest}
+
+Operational Bottlenecks / Goals:
+${projectDetails}
+        `
       })
     });
 
     if (emailResponse.ok) {
-      // 3. If successful, seamlessly redirect the user back to your homepage
       return Response.redirect(new URL('/?success=true', request.url), 303);
     } else {
       const errorData = await emailResponse.text();
